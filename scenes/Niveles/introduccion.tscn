@@ -1,0 +1,39 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/boss_fight/Primer fondo.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/boss_fight/mosquitoo.png" id="2"]
+[ext_resource type="Script" path="res://scripts/niveles/introduccion.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/boss/mosquito.gd" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/personajes/jugador.tscn" id="5"]
+
+[sub_resource type="RectangleShape2D" id="FloorShape"]
+size = Vector2(1400, 30)
+
+[sub_resource type="RectangleShape2D" id="MosquitoShape"]
+size = Vector2(150, 120)
+
+[node name="Introduccion" type="Node2D"]
+script = ExtResource("3")
+
+[node name="Fondo" type="Sprite2D" parent="."]
+texture = ExtResource("1")
+
+[node name="Mosquito" type="Area2D" parent="."]
+position = Vector2(880, 450)
+script = ExtResource("4")
+
+[node name="Sprite" type="Sprite2D" parent="Mosquito"]
+scale = Vector2(0.38, 0.38)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Mosquito"]
+shape = SubResource("MosquitoShape")
+
+[node name="Piso" type="StaticBody2D" parent="."]
+position = Vector2(576, 596)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Piso"]
+shape = SubResource("FloorShape")
+
+[node name="jugador" parent="." instance=ExtResource("5")]
+position = Vector2(240, 535)
