@@ -1,19 +1,26 @@
 extends Area2D
 
 const PROJECTILE_SCENE: PackedScene = preload("res://scenes/personajes/proyectil_boss.tscn")
+const DAMAGE_NUMBER = preload("res://scripts/ui/damage_number.gd")
 
 signal health_changed(current: int, maximum: int)
+signal earthquake
+signal earthquake_phase_changed(phase: String)
 signal defeated
 
-@export var max_health: int = 200
-@export var contact_damage: int = 12
+@export var max_health: int = 320
+@export var contact_damage: int = 9
 @export var damage_interval: float = 1.0
-@export var projectile_damage: int = 12
+@export var projectile_damage: int = 9
 @export var projectile_speed: float = 460.0
 @export var projectile_interval: float = 1.8
 @export var movement_range: float = 110.0
 @export var movement_speed: float = 0.65
 @export var hover_height: float = 14.0
+@export var earthquake_damage: int = 17
+@export var earthquake_interval_min: float = 3.5
+@export var earthquake_interval_max: float = 6.0
+@export var earthquake_jump_height: float = 150.0
 
 @onready var sprite: Sprite2D = $Sprite
 
@@ -24,11 +31,19 @@ var damage_timer: float = 0.0
 var projectile_timer: float = 1.0
 var start_position: Vector2
 var movement_time: float = 0.0
+var sprite_start_position: Vector2
+var sprite_start_scale: Vector2
+var earthquake_timer: float
+var earthquake_active: bool = false
+var earthquake_tween: Tween
 
 
 func _ready() -> void:
 	health = max_health
 	start_position = position
+	sprite_start_position = sprite.position
+	sprite_start_scale = sprite.scale
+	earthquake_timer = randf_range(earthquake_interval_min, earthquake_interval_max)
 	add_to_group("boss")
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
@@ -39,6 +54,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	movement_time += delta
+	_update_earthquake(delta)
 	var movement_offset := Vector2(
 		sin(movement_time * movement_speed) * movement_range,
 		sin(movement_time * movement_speed * 1.8) * hover_height
@@ -53,7 +69,7 @@ func _physics_process(delta: float) -> void:
 			_damage_player()
 			damage_timer = damage_interval
 
-	if not is_instance_valid(target_player):
+	if not is_instance_valid(target_player) or earthquake_active:
 		return
 
 	projectile_timer -= delta
@@ -95,17 +111,21 @@ func is_within_attack_range(
 	)
 
 
-func take_damage(amount: int) -> void:
+func take_damage(amount: int, is_critical: bool = false) -> void:
 	if amount <= 0 or health <= 0:
 		return
 
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
+	DAMAGE_NUMBER.show(self, global_position, amount, Color("#fff176"), is_critical)
 	sprite.modulate = Color(1.0, 0.45, 0.45, 1.0)
 	var hit_tween := create_tween()
 	hit_tween.tween_property(sprite, "modulate", Color.WHITE, 0.22)
 
 	if health == 0:
+		if earthquake_tween != null and earthquake_tween.is_running():
+			earthquake_tween.kill()
+		earthquake_active = false
 		monitoring = false
 		sprite.hide()
 		defeated.emit()
@@ -116,6 +136,12 @@ func _on_body_entered(body: Node2D) -> void:
 		contact_player = body
 		damage_timer = damage_interval
 		_damage_player()
+		if (
+			body.has_method("is_stomping_enemy")
+			and body.call("is_stomping_enemy", self)
+			and body.has_method("apply_stun")
+		):
+			body.call("apply_stun")
 
 
 func _on_body_exited(body: Node2D) -> void:
@@ -126,6 +152,90 @@ func _on_body_exited(body: Node2D) -> void:
 func _damage_player() -> void:
 	if is_instance_valid(contact_player):
 		contact_player.take_damage(contact_damage)
+
+
+func _update_earthquake(delta: float) -> void:
+	if earthquake_active or health > max_health / 2:
+		return
+
+	earthquake_timer -= delta
+	if earthquake_timer <= 0.0:
+		_begin_earthquake()
+
+
+func _begin_earthquake() -> void:
+	earthquake_active = true
+	earthquake_phase_changed.emit("warning")
+	earthquake_tween = create_tween()
+	earthquake_tween.tween_interval(0.65)
+	earthquake_tween.tween_callback(_jump_for_earthquake)
+
+
+func _jump_for_earthquake() -> void:
+	if health <= 0:
+		return
+
+	earthquake_phase_changed.emit("jump")
+	earthquake_tween = create_tween()
+	earthquake_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	earthquake_tween.tween_property(
+		sprite,
+		"position:y",
+		sprite_start_position.y - earthquake_jump_height,
+		0.48
+	)
+	earthquake_tween.tween_interval(0.18)
+	earthquake_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	earthquake_tween.tween_property(sprite, "position:y", sprite_start_position.y, 0.12)
+	earthquake_tween.tween_callback(_land_earthquake)
+
+
+func _land_earthquake() -> void:
+	if health <= 0:
+		return
+
+	earthquake_phase_changed.emit("impact")
+	earthquake.emit()
+	_create_shockwave()
+	earthquake_tween = create_tween()
+	earthquake_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	earthquake_tween.tween_property(
+		sprite, "scale", sprite_start_scale * Vector2(1.25, 0.72), 0.09
+	)
+	earthquake_tween.tween_property(sprite, "scale", sprite_start_scale, 0.24)
+	earthquake_tween.tween_interval(0.4)
+	earthquake_tween.tween_callback(_finish_earthquake)
+
+
+func _finish_earthquake() -> void:
+	earthquake_active = false
+	earthquake_timer = randf_range(earthquake_interval_min, earthquake_interval_max)
+	earthquake_phase_changed.emit("idle")
+
+
+func _create_shockwave() -> void:
+	var ring := Line2D.new()
+	ring.width = 9.0
+	ring.default_color = Color("#ffcf5c")
+	ring.closed = true
+	for point_index in range(33):
+		var angle := TAU * float(point_index) / 32.0
+		ring.add_point(Vector2(cos(angle), sin(angle)) * 42.0)
+
+	var scene_root := get_tree().current_scene
+	if scene_root == null:
+		return
+	scene_root.add_child(ring)
+	ring.global_position = Vector2(
+		global_position.x,
+		target_player.global_position.y if is_instance_valid(target_player) else global_position.y
+	)
+	ring.scale = Vector2(0.15, 0.15)
+	var ring_tween := ring.create_tween()
+	ring_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	ring_tween.tween_property(ring, "scale", Vector2(5.0, 1.0), 0.48)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.48)
+	ring_tween.tween_callback(ring.queue_free)
 
 
 func _shoot_projectile() -> void:

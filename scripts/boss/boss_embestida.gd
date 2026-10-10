@@ -1,7 +1,16 @@
 extends Area2D
 
-const LEFT_TEXTURE: Texture2D = preload("res://assets/boss_fight/finalBossIzq.png")
-const RIGHT_TEXTURE: Texture2D = preload("res://assets/boss_fight/finalBossDer.png")
+const DAMAGE_NUMBER = preload("res://scripts/ui/damage_number.gd")
+
+const LEFT_TEXTURE: Texture2D = preload("res://assets/boss_fight/bossfinaalIzq.png")
+const RIGHT_TEXTURE: Texture2D = preload("res://assets/boss_fight/bossfinaalDer.png")
+const LEFT_SLIDE_TEXTURE: Texture2D = preload(
+	"res://assets/boss_fight/bossfinaldeslizIzq (2).png"
+)
+const RIGHT_SLIDE_TEXTURE: Texture2D = preload(
+	"res://assets/boss_fight/bossfinaalDereDesliz.png"
+)
+const SPRITE_SCALE: float = 0.38
 
 signal health_changed(current: int, maximum: int)
 signal phase_changed(phase: String)
@@ -11,13 +20,16 @@ signal defeated
 enum Phase {
 	CHARGING,
 	DASHING,
+	STUNNED,
 }
 
-@export var max_health: int = 260
-@export var charge_duration: float = 2.0
-@export var dash_speed: float = 920.0
-@export var dash_duration: float = 1.2
+@export var max_health: int = 300
+@export var charge_duration: float = 1.6
+@export var charge_duration_max: float = 3.2
+@export var dash_speed: float = 1080.0
+@export var dash_duration: float = 1.4
 @export var dash_damage: int = 28
+@export var stun_duration: float = 1.35
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var hitbox: CollisionShape2D = $CollisionShape2D
@@ -33,7 +45,7 @@ var player_hit_this_dash: bool = false
 
 func _ready() -> void:
 	health = max_health
-	phase_timer = charge_duration
+	phase_timer = _random_charge_duration()
 	hitbox.disabled = true
 	monitoring = false
 	add_to_group("boss")
@@ -49,19 +61,31 @@ func _physics_process(delta: float) -> void:
 
 	movement_time += delta
 	if phase == Phase.CHARGING:
-		_update_facing()
 		phase_timer -= delta
-		sprite.modulate = Color(1.0, 0.72 + sin(movement_time * 9.0) * 0.18, 0.55, 1.0)
-		var charge_pulse := 1.0 + sin(movement_time * 9.0) * 0.025
-		sprite.scale = Vector2(0.21 * charge_pulse, 0.21 / charge_pulse)
+		var charge_pulse := 1.0 + sin(movement_time * 12.0) * 0.07
+		var charge_flash := 0.5 + sin(movement_time * 12.0) * 0.5
+		sprite.modulate = Color(1.0, 0.18 + charge_flash * 0.42, 0.12, 1.0)
+		sprite.scale = Vector2(
+			SPRITE_SCALE * charge_pulse,
+			SPRITE_SCALE / charge_pulse
+		)
 		charge_updated.emit(maxf(phase_timer, 0.0))
 		if phase_timer <= 0.0:
 			_begin_dash()
 	elif phase == Phase.DASHING:
-		global_position.x += charge_direction * dash_speed * delta
-		phase_timer -= delta
 		var arena_width := get_viewport_rect().size.x
-		if phase_timer <= 0.0 or global_position.x < 70.0 or global_position.x > arena_width - 70.0:
+		var next_x := global_position.x + charge_direction * dash_speed * delta
+		phase_timer -= delta
+		if next_x < 80.0 or next_x > arena_width - 80.0:
+			global_position.x = clampf(next_x, 80.0, arena_width - 80.0)
+			_begin_stunned()
+		else:
+			global_position.x = next_x
+		if phase == Phase.DASHING and phase_timer <= 0.0:
+			_begin_charge()
+	elif phase == Phase.STUNNED:
+		phase_timer -= delta
+		if phase_timer <= 0.0:
 			_begin_charge()
 
 
@@ -77,7 +101,7 @@ func is_within_attack_range(
 	horizontal_range: float,
 	vertical_range: float
 ) -> bool:
-	if phase != Phase.CHARGING:
+	if phase != Phase.CHARGING and phase != Phase.STUNNED:
 		return false
 
 	var half_size := Vector2.ZERO
@@ -99,12 +123,17 @@ func is_within_attack_range(
 	)
 
 
-func take_damage(amount: int) -> void:
-	if amount <= 0 or health <= 0 or phase != Phase.CHARGING:
+func take_damage(amount: int, is_critical: bool = false) -> void:
+	if (
+		amount <= 0
+		or health <= 0
+		or (phase != Phase.CHARGING and phase != Phase.STUNNED)
+	):
 		return
 
 	health = maxi(health - amount, 0)
 	health_changed.emit(health, max_health)
+	DAMAGE_NUMBER.show(self, global_position, amount, Color("#fff176"), is_critical)
 	sprite.modulate = Color(1.0, 0.45, 0.45, 1.0)
 	var hit_tween := create_tween()
 	hit_tween.tween_property(sprite, "modulate", Color.WHITE, 0.22)
@@ -121,7 +150,8 @@ func _begin_dash() -> void:
 	phase_timer = dash_duration
 	player_hit_this_dash = false
 	sprite.modulate = Color.WHITE
-	sprite.scale = Vector2.ONE * 0.21
+	sprite.texture = LEFT_SLIDE_TEXTURE if charge_direction < 0.0 else RIGHT_SLIDE_TEXTURE
+	sprite.scale = Vector2.ONE * SPRITE_SCALE
 	monitoring = true
 	hitbox.set_deferred("disabled", false)
 	phase_changed.emit("dashing")
@@ -129,13 +159,28 @@ func _begin_dash() -> void:
 
 func _begin_charge() -> void:
 	phase = Phase.CHARGING
-	phase_timer = charge_duration
+	phase_timer = _random_charge_duration()
 	monitoring = false
 	hitbox.set_deferred("disabled", true)
 	sprite.modulate = Color.WHITE
 	_update_facing()
 	phase_changed.emit("charging")
 	charge_updated.emit(charge_duration)
+
+
+func _begin_stunned() -> void:
+	phase = Phase.STUNNED
+	phase_timer = stun_duration
+	monitoring = false
+	hitbox.set_deferred("disabled", true)
+	sprite.texture = LEFT_TEXTURE if charge_direction < 0.0 else RIGHT_TEXTURE
+	sprite.modulate = Color("#aaaaff")
+	sprite.scale = Vector2.ONE * SPRITE_SCALE
+	phase_changed.emit("stunned")
+
+
+func _random_charge_duration() -> float:
+	return randf_range(charge_duration, maxf(charge_duration, charge_duration_max))
 
 
 func _update_facing() -> void:
@@ -154,3 +199,10 @@ func _on_body_entered(body: Node2D) -> void:
 
 	player_hit_this_dash = true
 	body.take_damage(dash_damage)
+	if (
+		body.has_method("is_stomping_enemy")
+		and body.call("is_stomping_enemy", self)
+		and body.has_method("apply_stun")
+	):
+		body.call("apply_stun")
+	_begin_stunned()

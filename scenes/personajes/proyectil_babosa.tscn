@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemigos/proyectil_babosa.gd" id="1"]
+
+[sub_resource type="CircleShape2D" id="SlimeShape"]
+radius = 14.0
+
+[node name="ProyectilBabosa" type="Area2D"]
+collision_layer = 0
+collision_mask = 1
+script = ExtResource("1")
+
+[node name="Sprite" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-13, 2, -9, -7, -2, -12, 7, -10, 13, -3, 11, 6, 5, 12, -5, 10, -12, 7)
+color = Color(0.34, 0.52, 0.29, 0.9)
+
+[node name="Highlight" type="Polygon2D" parent="."]
+position = Vector2(-3, -4)
+polygon = PackedVector2Array(-5, 0, -3, -4, 1, -5, 4, -2, 1, 0)
+color = Color(0.66, 0.78, 0.36, 0.85)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("SlimeShape")

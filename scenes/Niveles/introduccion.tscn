@@ -10,7 +10,7 @@
 size = Vector2(1400, 30)
 
 [sub_resource type="RectangleShape2D" id="MosquitoShape"]
-size = Vector2(150, 120)
+size = Vector2(214, 160)
 
 [node name="Introduccion" type="Node2D"]
 script = ExtResource("3")

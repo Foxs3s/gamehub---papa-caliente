@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemigos/mariquita.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/boss_fight/mariquitaizquierda.png" id="2"]
+
+[sub_resource type="RectangleShape2D" id="LadybugShape"]
+size = Vector2(138, 92)
+
+[node name="Mariquita" type="Area2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+z_index = 5
+scale = Vector2(0.3, 0.3)
+texture = ExtResource("2")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("LadybugShape")

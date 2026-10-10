@@ -1,43 +1,40 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://ctj4iijimewr4"]
 
-[ext_resource type="Texture2D" path="res://assets/boss_fight/fondo_boss_final_nuevo.png" id="1"]
-[ext_resource type="Texture2D" path="res://assets/boss_fight/finalBossIzq.png" id="2"]
-[ext_resource type="Texture2D" path="res://assets/boss_fight/finalBossDer.png" id="3"]
-[ext_resource type="Script" path="res://scripts/niveles/boss_embestida.gd" id="4"]
-[ext_resource type="Script" path="res://scripts/boss/boss_embestida.gd" id="5"]
+[ext_resource type="Texture2D" uid="uid://bb4taa1lh6y1p" path="res://assets/boss_fight/fondo_boss_final_nuevo.png" id="1"]
+[ext_resource type="Texture2D" uid="uid://bqdsypclls2fi" path="res://assets/boss_fight/bossfinaalIzq.png" id="2"]
+[ext_resource type="Script" uid="uid://b8sl382uxesqr" path="res://scripts/niveles/boss_embestida.gd" id="4"]
+[ext_resource type="Script" uid="uid://ik0t1vi8pxpn" path="res://scripts/boss/boss_embestida.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/personajes/jugador.tscn" id="6"]
+
+[sub_resource type="RectangleShape2D" id="BossHitbox"]
+size = Vector2(190, 138)
 
 [sub_resource type="RectangleShape2D" id="FloorShape"]
 size = Vector2(1500, 40)
 
-[sub_resource type="RectangleShape2D" id="BossHitbox"]
-size = Vector2(195, 135)
-
-[node name="BossEmbestida" type="Node2D"]
+[node name="BossEmbestida" type="Node2D" unique_id=578369918]
 script = ExtResource("4")
 
-[node name="Fondo" type="Sprite2D" parent="."]
+[node name="Fondo" type="Sprite2D" parent="." unique_id=1451860597]
 texture = ExtResource("1")
 
-[node name="BossEmbestida" type="Area2D" parent="."]
-position = Vector2(880, 550)
+[node name="BossEmbestida" type="Area2D" parent="." unique_id=1079967224]
+position = Vector2(880, 566)
 script = ExtResource("5")
 
-[node name="Sprite" type="Sprite2D" parent="BossEmbestida"]
-scale = Vector2(0.21, 0.21)
+[node name="Sprite" type="Sprite2D" parent="BossEmbestida" unique_id=330476574]
+scale = Vector2(0.38, 0.38)
 texture = ExtResource("2")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="BossEmbestida"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BossEmbestida" unique_id=2102577028]
+position = Vector2(156, 81)
 shape = SubResource("BossHitbox")
 
-[node name="Piso" type="StaticBody2D" parent="."]
-position = Vector2(704, 680)
+[node name="Piso" type="StaticBody2D" parent="." unique_id=289258616]
+position = Vector2(704, 628)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Piso"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Piso" unique_id=1277902946]
 shape = SubResource("FloorShape")
 
-[node name="jugador" parent="." instance=ExtResource("6")]
-position = Vector2(220, 610)
-
-[node name="Sprite" parent="jugador" index="0"]
-position = Vector2(0, -32)
+[node name="jugador" parent="." unique_id=1698748883 instance=ExtResource("6")]
+position = Vector2(220, 566)

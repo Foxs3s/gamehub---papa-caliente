@@ -3,29 +3,65 @@ extends Node2D
 const RETRO_TRANSITION = preload("res://scripts/niveles/transicion_retro.gd")
 const DEFEAT_SCREEN = preload("res://scripts/niveles/pantalla_derrota.gd")
 const GAME_OVER_TEXTURE: Texture2D = preload("res://assets/personajes/cinematicas/Game_over_2.jpg.jpeg")
+const BOSS_TIME_LIMIT: float = 35.0
 
 @onready var background: Sprite2D = $Fondo
 @onready var player: Node = $jugador
-@onready var boss: Area2D = $BossFinal
+@onready var boss: Area2D = $GuardianSismico
 
 var player_health_bar: ProgressBar
 var boss_health_bar: ProgressBar
 var boss_status_label: Label
+var timer_label: Label
+var player_health_tween: Tween
+var boss_health_tween: Tween
+var player_health_initialized: bool = false
+var boss_health_initialized: bool = false
 var game_finished: bool = false
+var boss_defeated: bool = false
+var time_remaining: float = BOSS_TIME_LIMIT
+var background_base_position: Vector2
 
 
 func _ready() -> void:
+	GameState.enter_stage(player, "mapa_1")
 	get_viewport().size_changed.connect(_fit_background)
 	_fit_background()
+	background_base_position = background.position
 	_create_hud()
 
 	player.connect("health_changed", Callable(self, "_on_player_health_changed"))
 	player.connect("defeated", Callable(self, "_on_player_defeated"))
-	boss.call("set_target", player)
-	boss.health_changed.connect(_on_boss_health_changed)
-	boss.defeated.connect(_on_boss_defeated)
+	if GameState.is_boss_defeated("guardian_sismico"):
+		boss_defeated = true
+		GameState.mark_stage_cleared("mapa_1")
+		boss.hide()
+		boss.monitoring = false
+		boss.health = 0
+		boss.remove_from_group("boss")
+		boss_status_label.text = "GUARDIÁN DERROTADO"
+	else:
+		boss.call("set_target", player)
+		boss.health_changed.connect(_on_boss_health_changed)
+		boss.earthquake.connect(_on_boss_earthquake)
+		boss.earthquake_phase_changed.connect(_on_boss_earthquake_phase_changed)
+		boss.defeated.connect(_on_boss_defeated)
 	_on_player_health_changed(int(player.get("health")), int(player.get("max_health")))
 	_on_boss_health_changed(boss.health, boss.max_health)
+	if boss_defeated:
+		boss_health_bar.hide()
+		timer_label.hide()
+	_update_timer_label()
+
+
+func _process(delta: float) -> void:
+	if game_finished or boss_defeated or time_remaining <= 0.0:
+		return
+
+	time_remaining = maxf(time_remaining - delta, 0.0)
+	_update_timer_label()
+	if time_remaining <= 0.0:
+		player.call("explode")
 
 
 func _fit_background() -> void:
@@ -36,6 +72,7 @@ func _fit_background() -> void:
 	background.centered = true
 	background.position = viewport_size * 0.5
 	background.scale = Vector2.ONE * cover_scale
+	background_base_position = background.position
 
 
 func _create_hud() -> void:
@@ -51,16 +88,16 @@ func _create_hud() -> void:
 	var player_label := _create_label(hud, "JUGADOR", false)
 	player_label.offset_left = 24.0
 	player_label.offset_top = 12.0
-	player_label.offset_right = 304.0
+	player_label.offset_right = 384.0
 	player_label.offset_bottom = 36.0
 
 	player_health_bar = _create_health_bar(hud, false, Color("#63d471"))
 	player_health_bar.offset_left = 24.0
 	player_health_bar.offset_top = 40.0
-	player_health_bar.offset_right = 304.0
-	player_health_bar.offset_bottom = 64.0
+	player_health_bar.offset_right = 384.0
+	player_health_bar.offset_bottom = 72.0
 
-	boss_status_label = _create_label(hud, "BOSS FINAL", true)
+	boss_status_label = _create_label(hud, "GUARDIÁN SÍSMICO", true)
 	boss_status_label.offset_left = -304.0
 	boss_status_label.offset_top = 12.0
 	boss_status_label.offset_right = -24.0
@@ -71,6 +108,12 @@ func _create_hud() -> void:
 	boss_health_bar.offset_top = 40.0
 	boss_health_bar.offset_right = -24.0
 	boss_health_bar.offset_bottom = 64.0
+
+	timer_label = _create_label(hud, "", true)
+	timer_label.offset_left = -304.0
+	timer_label.offset_top = 72.0
+	timer_label.offset_right = -24.0
+	timer_label.offset_bottom = 96.0
 
 
 func _create_label(parent: Control, label_text: String, align_right: bool) -> Label:
@@ -107,18 +150,80 @@ func _create_health_bar(parent: Control, align_right: bool, fill_color: Color) -
 
 func _on_player_health_changed(current: int, maximum: int) -> void:
 	player_health_bar.max_value = maximum
-	player_health_bar.value = current
+	if not player_health_initialized:
+		player_health_bar.value = current
+		player_health_initialized = true
+		return
+
+	if player_health_tween != null and player_health_tween.is_running():
+		player_health_tween.kill()
+	player_health_tween = create_tween()
+	player_health_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	player_health_tween.tween_property(player_health_bar, "value", current, 0.45)
 
 
 func _on_boss_health_changed(current: int, maximum: int) -> void:
 	boss_health_bar.max_value = maximum
-	boss_health_bar.value = current
+	if not boss_health_initialized:
+		boss_health_bar.value = current
+		boss_health_initialized = true
+		return
+
+	if boss_health_tween != null and boss_health_tween.is_running():
+		boss_health_tween.kill()
+	boss_health_tween = create_tween()
+	boss_health_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	boss_health_tween.tween_property(boss_health_bar, "value", current, 0.45)
+
+
+func _on_boss_earthquake_phase_changed(phase: String) -> void:
+	match phase:
+		"warning":
+			boss_status_label.text = "¡EL GUARDIÁN PREPARA UN SALTO!"
+			boss_status_label.add_theme_color_override("font_color", Color("#ffb35c"))
+		"jump":
+			boss_status_label.text = "¡SALTA PARA ESQUIVAR EL TERREMOTO!"
+			boss_status_label.add_theme_color_override("font_color", Color("#ff6464"))
+		"impact":
+			boss_status_label.text = "¡TERREMOTO!"
+			boss_status_label.add_theme_color_override("font_color", Color("#ff6464"))
+		"idle":
+			boss_status_label.text = "GUARDIÁN SÍSMICO"
+			boss_status_label.add_theme_color_override("font_color", Color("#fff4e8"))
+
+
+func _on_boss_earthquake() -> void:
+	player.call(
+		"apply_earthquake",
+		boss.global_position,
+		boss.earthquake_damage
+	)
+
+	var shake_tween := create_tween()
+	for shake_index in range(8):
+		var offset := Vector2(randf_range(-10.0, 10.0), randf_range(-6.0, 6.0))
+		shake_tween.tween_property(
+			background, "position", background_base_position + offset, 0.045
+		)
+	shake_tween.tween_property(background, "position", background_base_position, 0.08)
+
+
+func _update_timer_label() -> void:
+	var seconds_left := ceili(time_remaining)
+	timer_label.text = "TIEMPO %02d:%02d" % [floori(float(seconds_left) / 60.0), seconds_left % 60]
+	timer_label.add_theme_color_override(
+		"font_color", Color("#ff6464") if seconds_left <= 10 else Color("#fff4e8")
+	)
 
 
 func _on_boss_defeated() -> void:
-	boss_status_label.text = "BOSS DERROTADO"
+	boss_defeated = true
+	GameState.mark_boss_defeated("guardian_sismico")
+	GameState.mark_stage_cleared("mapa_1")
+	GameState.add_coins(80)
+	boss_status_label.text = "GUARDIÁN DERROTADO"
 	player.restore_full_health()
-	RETRO_TRANSITION.transition_to(get_tree(), "res://scenes/Niveles/boss_embestida.tscn")
+	boss_health_bar.hide()
 
 
 func _on_player_defeated() -> void:
@@ -139,7 +244,7 @@ func _show_defeat_screen() -> void:
 
 func _restart_game() -> void:
 	get_tree().paused = false
-	RETRO_TRANSITION.transition_to(get_tree(), "res://scenes/Niveles/introduccion.tscn")
+	GameState.restart_from_start(get_tree(), int(player.get("max_health")))
 
 
 func _exit_game() -> void:

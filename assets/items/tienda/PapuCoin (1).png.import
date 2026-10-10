@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://w3scj70gqxys"
-path="res://.godot/imported/finalBossIzq.png-bf9775de8f1316bb0c11e54f44f78e0c.ctex"
+uid="uid://b3t2fbb41vh1b"
+path="res://.godot/imported/PapuCoin (1).png-cbd0e7ba33b68393234f60d169e6f0a5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/boss_fight/finalBossIzq.png"
-dest_files=["res://.godot/imported/finalBossIzq.png-bf9775de8f1316bb0c11e54f44f78e0c.ctex"]
+source_file="res://assets/items/tienda/PapuCoin (1).png"
+dest_files=["res://.godot/imported/PapuCoin (1).png-cbd0e7ba33b68393234f60d169e6f0a5.ctex"]
 
 [params]
 

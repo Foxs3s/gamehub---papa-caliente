@@ -1,9 +1,9 @@
 extends Control
 
-const RETRO_TRANSITION = preload("res://scripts/niveles/transicion_retro.gd")
 const MENU_BACKGROUND: Texture2D = preload("res://assets/interfaz/fondo_menuj.jpg")
 
 func _ready() -> void:
+	MusicManager.set_context("menu")
 	set_anchors_preset(PRESET_FULL_RECT)
 
 	var background := TextureRect.new()
@@ -52,7 +52,7 @@ func _create_art_button(description: String, top_left: Vector2, bottom_right: Ve
 
 func _on_play_pressed() -> void:
 	print("Cargando juego...")
-	RETRO_TRANSITION.transition_to(get_tree(), "res://scenes/Niveles/introduccion.tscn")
+	GameState.begin_new_run(get_tree())
 
 func _on_salir_pressed() -> void:
 	get_tree().quit()
