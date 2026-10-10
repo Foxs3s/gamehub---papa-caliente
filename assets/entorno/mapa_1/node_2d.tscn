@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cw8ipekexn4xs"]
+
+[ext_resource type="Script" uid="uid://b015k4l8gc00f" path="res://assets/entorno/mapa_1/node_2d.gd" id="1_etuhr"]
+
+[node name="Node2D" type="Node2D" unique_id=576851910]
+script = ExtResource("1_etuhr")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=2136933033]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="AnimationPlayer" unique_id=770707898]

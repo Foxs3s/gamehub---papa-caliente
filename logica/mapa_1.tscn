@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://cojjfhwq252wo"]
+
+[ext_resource type="PackedScene" uid="uid://cb5i3yqunt31x" path="res://logica/personajes/jugador/jugador.tscn" id="1_ax437"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_335py"]
+size = Vector2(2000, 80)
+
+[node name="mapa_1" type="Node2D" unique_id=538429136]
+position = Vector2(4, 113)
+
+[node name="piso" type="StaticBody2D" parent="." unique_id=902378921]
+position = Vector2(1424, -88)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="piso" unique_id=546302382]
+position = Vector2(-1000, 485)
+shape = SubResource("RectangleShape2D_335py")
+
+[node name="ColorRect" type="ColorRect" parent="piso" unique_id=1520148211]
+offset_left = -1998.0
+offset_top = 446.0
+offset_right = -1.0
+offset_bottom = 523.0
+
+[node name="jugador" parent="." unique_id=1860488273 instance=ExtResource("1_ax437")]
+position = Vector2(455, 310)
